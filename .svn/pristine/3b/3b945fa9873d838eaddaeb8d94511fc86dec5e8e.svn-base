@@ -1,0 +1,238 @@
+package webshop.web.servlet;
+
+import java.io.IOException;
+import java.util.List;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import webshop.model.Category;
+import webshop.service.BookService;
+import webshop.service.CategoryService;
+import cn.itcast.commons.CommonUtils;
+import cn.itcast.servlet.BaseServlet;
+
+public class AdminCategoryServlet extends BaseServlet {
+	private CategoryService categoryService = new CategoryService();
+	private BookService bookService = new BookService(); 
+	
+	/**
+	 * 鏌ヨ鎵�湁鍒嗙被
+	 * @param req
+	 * @param resp
+	 * @return
+	 * @throws ServletException
+	 * @throws IOException
+	 */
+	public String findAll(HttpServletRequest req, HttpServletResponse resp)
+			throws ServletException, IOException {
+		req.setAttribute("parents", categoryService.findAll());
+		return "f:/adminjsps/admin/category/list.jsp";
+	}
+	
+	/**
+	 * 娣诲姞涓�骇鍒嗙被
+	 * @param req
+	 * @param resp
+	 * @return
+	 * @throws ServletException
+	 * @throws IOException
+	 */
+	public String addParent(HttpServletRequest req, HttpServletResponse resp)
+			throws ServletException, IOException {
+		/*
+		 * 1. 灏佽琛ㄥ崟鏁版嵁鍒癈ategory涓�
+		 * 2. 璋冪敤service鐨刟dd()鏂规硶瀹屾垚娣诲姞
+		 * 3. 璋冪敤findAll()锛岃繑鍥瀕ist.jsp鏄剧ず鎵�湁鍒嗙被
+		 */
+		Category parent = CommonUtils.toBean(req.getParameterMap(), Category.class);
+		parent.setCid(CommonUtils.uuid());//璁剧疆cid
+		categoryService.add(parent);
+		return findAll(req, resp);
+	}
+	
+	public String addChild(HttpServletRequest req, HttpServletResponse resp)
+			throws ServletException, IOException {
+		/*
+		 * 1. 灏佽琛ㄥ崟鏁版嵁鍒癈ategory涓�
+		 * 2. 闇�鎵嬪姩鐨勬妸琛ㄥ崟涓殑pid鏄犲皠鍒癱hild瀵硅薄涓�
+		 * 2. 璋冪敤service鐨刟dd()鏂规硶瀹屾垚娣诲姞
+		 * 3. 璋冪敤findAll()锛岃繑鍥瀕ist.jsp鏄剧ず鎵�湁鍒嗙被
+		 */
+		Category child = CommonUtils.toBean(req.getParameterMap(), Category.class);
+		child.setCid(CommonUtils.uuid());//璁剧疆cid
+		
+		// 鎵嬪姩鏄犲皠pid
+		String pid = req.getParameter("pid");
+		Category parent = new Category();
+		parent.setCid(pid);
+		child.setParent(parent);
+		
+		categoryService.add(child);
+		return findAll(req, resp);
+	}
+	
+	/**
+	 * 娣诲姞绗簩鍒嗙被锛氱涓�
+	 * @param req
+	 * @param resp
+	 * @return
+	 * @throws ServletException
+	 * @throws IOException
+	 */
+	public String addChildPre(HttpServletRequest req, HttpServletResponse resp)
+			throws ServletException, IOException {
+		String pid = req.getParameter("pid");//褰撳墠鐐瑰嚮鐨勭埗鍒嗙被id
+		List<Category> parents = categoryService.findParents();
+		req.setAttribute("pid", pid);
+		req.setAttribute("parents", parents);
+		
+		return "f:/adminjsps/admin/category/add2.jsp";
+	}
+	
+	/**
+	 * 淇敼涓�骇鍒嗙被锛氱涓�
+	 * @param req
+	 * @param resp
+	 * @return
+	 * @throws ServletException
+	 * @throws IOException
+	 */
+	public String editParentPre(HttpServletRequest req, HttpServletResponse resp)
+			throws ServletException, IOException {
+		/*
+		 * 1. 鑾峰彇閾炬帴涓殑cid
+		 * 2. 浣跨敤cid鍔犺浇Category
+		 * 3. 淇濆瓨Category
+		 * 4. 杞彂鍒癳dit.jsp椤甸潰鏄剧ずCategory
+		 */
+		String cid = req.getParameter("cid");
+		Category parent = categoryService.load(cid);
+		req.setAttribute("parent", parent);
+		return "f:/adminjsps/admin/category/edit.jsp";
+	}
+	
+	/**
+	 * 淇敼涓�骇鍒嗙被锛氱浜屾
+	 * @param req
+	 * @param resp
+	 * @return
+	 * @throws ServletException
+	 * @throws IOException
+	 */
+	public String editParent(HttpServletRequest req, HttpServletResponse resp)
+			throws ServletException, IOException {
+		/*
+		 * 1. 灏佽琛ㄥ崟鏁版嵁鍒癈ategory涓�
+		 * 2. 璋冪敤service鏂规硶瀹屾垚淇敼
+		 * 3. 杞彂鍒發ist.jsp鏄剧ず鎵�湁鍒嗙被锛坮eturn findAll();锛�
+		 */
+		Category parent = CommonUtils.toBean(req.getParameterMap(), Category.class);
+		categoryService.edit(parent);
+		return findAll(req, resp);
+	}
+	
+	/**
+	 * 淇敼浜岀骇鍒嗙被锛氱涓�
+	 * @param req
+	 * @param resp
+	 * @return
+	 * @throws ServletException
+	 * @throws IOException
+	 */
+	public String editChildPre(HttpServletRequest req, HttpServletResponse resp)
+			throws ServletException, IOException {
+		/*
+		 * 1. 鑾峰彇閾炬帴鍙傛暟cid锛岄�杩嘽id鍔犺浇Category锛屼繚瀛樹箣
+		 * 2. 鏌ヨ鍑烘墍鏈�绾у垎绫伙紝淇濆瓨涔�
+		 * 3. 杞彂鍒癳dit2.jsp
+		 */
+		String cid = req.getParameter("cid");
+		Category child = categoryService.load(cid);
+		req.setAttribute("child", child);
+		req.setAttribute("parents", categoryService.findParents());
+		
+		return "f:/adminjsps/admin/category/edit2.jsp";
+	}
+	
+	/**
+	 * 淇敼浜岀骇鍒嗙被锛氱浜屾
+	 * @param req
+	 * @param resp
+	 * @return
+	 * @throws ServletException
+	 * @throws IOException
+	 */
+	public String editChild(HttpServletRequest req, HttpServletResponse resp)
+			throws ServletException, IOException {
+		/*
+		 * 1. 灏佽琛ㄥ崟鍙傛暟鍒癈ategory child
+		 * 2. 鎶婅〃鍗曚腑鐨刾id灏佽鍒癱hild, ...
+		 * 3. 璋冪敤service.edit()瀹屾垚淇敼
+		 * 4. 杩斿洖鍒發ist.jsp
+		 */
+		Category child = CommonUtils.toBean(req.getParameterMap(), Category.class);
+		String pid = req.getParameter("pid");
+		Category parent = new Category();
+		parent.setCid(pid);
+		child.setParent(parent);
+		
+		categoryService.edit(child);
+		return findAll(req, resp);
+	}
+	
+	/**
+	 * 鍒犻櫎涓�骇鍒嗙被
+	 * @param req
+	 * @param resp
+	 * @return
+	 * @throws ServletException
+	 * @throws IOException
+	 */
+	public String deleteParent(HttpServletRequest req, HttpServletResponse resp)
+			throws ServletException, IOException {
+		/*
+		 * 1. 鑾峰彇閾炬帴鍙傛暟cid锛屽畠鏄竴涓�绾у垎绫荤殑id
+		 * 2. 閫氳繃cid锛屾煡鐪嬭鐖跺垎绫讳笅瀛愬垎绫荤殑涓暟
+		 * 3. 濡傛灉澶т簬闆讹紝璇存槑杩樻湁瀛愬垎绫伙紝涓嶈兘鍒犻櫎銆備繚瀛橀敊璇俊鎭紝杞彂鍒癿sg.jsp
+		 * 4. 濡傛灉绛変簬闆讹紝鍒犻櫎涔嬶紝杩斿洖鍒發ist.jsp
+		 */
+		String cid = req.getParameter("cid");
+		int cnt = categoryService.findChildrenCountByParent(cid);
+		if(cnt > 0) {
+			req.setAttribute("msg", "璇ュ垎绫讳笅杩樻湁瀛愬垎绫伙紝涓嶈兘鍒犻櫎锛");
+			return "f:/adminjsps/msg.jsp";
+		} else {
+			categoryService.delete(cid);
+			return findAll(req, resp);
+		}
+	}
+	
+	/**
+	 * 鍒犻櫎2绾у垎绫�
+	 * @param req
+	 * @param resp
+	 * @return
+	 * @throws ServletException
+	 * @throws IOException
+	 */
+	public String deleteChild(HttpServletRequest req, HttpServletResponse resp)
+			throws ServletException, IOException {
+		/*
+		 * 1. 鑾峰彇cid锛屽嵆2绾у垎绫籭d
+		 * 2. 鑾峰彇璇ュ垎绫讳笅鐨勫浘涔︿釜鏁�
+		 * 3. 濡傛灉澶т簬闆讹紝淇濆瓨閿欒淇℃伅锛岃浆鍙戝埌msg.jsp
+		 * 4. 濡傛灉绛変簬闆讹紝鍒犻櫎涔嬶紝杩斿洖鍒發ist.jsp
+		 */
+		String cid = req.getParameter("cid");
+		int cnt = bookService.findBookCountByCategory(cid);
+		if(cnt > 0) {
+			req.setAttribute("msg", "璇ュ垎绫讳笅杩樺瓨鍦ㄥ浘涔︼紝涓嶈兘鍒犻櫎锛");
+			return "f:/adminjsps/msg.jsp";
+		} else {
+			categoryService.delete(cid);
+			return findAll(req, resp);
+		}
+	}
+}

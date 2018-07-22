@@ -1,0 +1,16 @@
+#divMain{margin-left: 240px;}
+#divTitle{width :880px;height:30px;border:1px solid #d0d0d0; background:url(/goods/images/bg_btns.png) repeat-x 0 px -132px;}
+#spanTitle{margin-left: 18px;font-weight: 900;}
+#divBody{width :880px;height:400px;border-left:1px solid #d0d0d0;
+         border-right:1px solid #d0d0d0;
+         border-bottom:1px solid #d0d0d0;}
+
+.tdText{width:300px; text-align: right;}
+.tdInput{width:250px;}
+.tdError{width:300px;text-align: left;}
+#tableForm{line-height: 50px;}
+#divverifyCode{text-align:center;}
+
+.inputStyle{width:240px;height:32px;border-color: #7f9db9;padding-left: 10px; border-style: solid;line-height: 32px;}
+ 
+.errorClass{background:url(/goods/images/error.png) no-repeat;color:#f40000;font-size: 10pt;border:1px solid #ffb8b8;background-color: #fef2f2;padding: 8px 8px 8px 35px;}

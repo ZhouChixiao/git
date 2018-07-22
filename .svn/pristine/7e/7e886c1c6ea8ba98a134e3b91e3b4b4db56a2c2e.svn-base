@@ -1,0 +1,208 @@
+package webshop.web.servlet;
+
+import java.awt.Image;
+import java.io.File;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.swing.ImageIcon;
+
+import org.apache.commons.fileupload.FileItem;
+import org.apache.commons.fileupload.FileItemFactory;
+import org.apache.commons.fileupload.FileUploadException;
+import org.apache.commons.fileupload.disk.DiskFileItemFactory;
+import org.apache.commons.fileupload.servlet.ServletFileUpload;
+
+import webshop.model.Book;
+import webshop.model.Category;
+import webshop.service.BookService;
+import webshop.service.CategoryService;
+
+import cn.itcast.commons.CommonUtils;
+
+
+
+
+public class AdminAddBookServlet extends HttpServlet {
+	public void doPost(HttpServletRequest request, HttpServletResponse response)
+			throws ServletException, IOException {
+		request.setCharacterEncoding("utf-8");
+		response.setContentType("text/html;charset=utf-8");
+		
+		/*
+		 * 1. commons-fileupload鐨勪笂浼犱笁姝�
+		 */
+		// 鍒涘缓宸ュ叿
+		FileItemFactory factory = new DiskFileItemFactory();
+		/*
+		 * 2. 鍒涘缓瑙ｆ瀽鍣ㄥ璞�
+		 */
+		ServletFileUpload sfu = new ServletFileUpload(factory);
+		sfu.setFileSizeMax(80 * 1024);//璁剧疆鍗曚釜涓婁紶鐨勬枃浠朵笂闄愪负80KB
+		/*
+		 * 3. 瑙ｆ瀽request寰楀埌List<FileItem>
+		 */
+		List<FileItem> fileItemList = null;
+		try {
+			fileItemList = sfu.parseRequest(request);
+		} catch (FileUploadException e) {
+			// 濡傛灉鍑虹幇杩欎釜寮傛锛岃鏄庡崟涓枃浠惰秴鍑轰簡80KB
+			error("涓婁紶鐨勬枃浠惰秴鍑轰簡80KB", request, response);
+			return;
+		}
+		
+		/*
+		 * 4. 鎶奓ist<FileItem>灏佽鍒癇ook瀵硅薄涓�
+		 * 4.1 棣栧厛鎶娾�鏅�琛ㄥ崟瀛楁鈥濇斁鍒颁竴涓狹ap涓紝鍐嶆妸Map杞崲鎴怋ook鍜孋ategory瀵硅薄锛屽啀寤虹珛涓よ�鐨勫叧绯�
+		 */
+		Map<String,Object> map = new HashMap<String,Object>();
+		for(FileItem fileItem : fileItemList) {
+			if(fileItem.isFormField()) {//濡傛灉鏄櫘閫氳〃鍗曞瓧娈�
+				map.put(fileItem.getFieldName(), fileItem.getString("UTF-8"));
+			}
+		}
+		Book book = CommonUtils.toBean(map, Book.class);//鎶奙ap涓ぇ閮ㄥ垎鏁版嵁灏佽鍒癇ook瀵硅薄涓�
+		Category category = CommonUtils.toBean(map, Category.class);//鎶奙ap涓璫id灏佽鍒癈ategory涓�
+		book.setCategory(category);
+		
+		/*
+		 * 4.2 鎶婁笂浼犵殑鍥剧墖淇濆瓨璧锋潵
+		 *   > 鑾峰彇鏂囦欢鍚嶏細鎴彇涔�
+		 *   > 缁欐枃浠舵坊鍔犲墠缂�細浣跨敤uuid鍓嶇紑锛屼负涔熼伩鍏嶆枃浠跺悓鍚嶇幇璞�
+		 *   > 鏍￠獙鏂囦欢鐨勬墿灞曞悕锛氬彧鑳芥槸jpg
+		 *   > 鏍￠獙鍥剧墖鐨勫昂瀵�
+		 *   > 鎸囧畾鍥剧墖鐨勪繚瀛樿矾寰勶紝杩欓渶瑕佷娇鐢⊿ervletContext#getRealPath()
+		 *   > 淇濆瓨涔�
+		 *   > 鎶婂浘鐗囩殑璺緞璁剧疆缁橞ook瀵硅薄
+		 */
+		// 鑾峰彇鏂囦欢鍚�
+		FileItem fileItem = fileItemList.get(1);//鑾峰彇澶у浘
+		String filename = fileItem.getName();
+		// 鎴彇鏂囦欢鍚嶏紝鍥犱负閮ㄥ垎娴忚鍣ㄤ笂浼犵殑缁濆璺緞
+		int index = filename.lastIndexOf("\\");
+		if(index != -1) {
+			filename = filename.substring(index + 1);
+		}
+		// 缁欐枃浠跺悕娣诲姞uuid鍓嶇紑锛岄伩鍏嶆枃浠跺悓鍚嶇幇璞�
+		filename = CommonUtils.uuid() + "_" + filename;
+		// 鏍￠獙鏂囦欢鍚嶇О鐨勬墿灞曞悕
+		if(!filename.toLowerCase().endsWith(".jpg")) {
+			error("涓婁紶鐨勫浘鐗囨墿灞曞悕蹇呴』鏄疛PG", request, response);
+			return;
+		}
+		// 鏍￠獙鍥剧墖鐨勫昂瀵�
+		// 淇濆瓨涓婁紶鐨勫浘鐗囷紝鎶婂浘鐗噉ew鎴愬浘鐗囧璞★細Image銆両con銆両mageIcon銆丅ufferedImage銆両mageIO
+		/*
+		 * 淇濆瓨鍥剧墖锛�
+		 * 1. 鑾峰彇鐪熷疄璺緞
+		 */
+		String savepath = this.getServletContext().getRealPath("/book_img");
+		/*
+		 * 2. 鍒涘缓鐩爣鏂囦欢
+		 */
+		File destFile = new File(savepath, filename);
+		/*
+		 * 3. 淇濆瓨鏂囦欢
+		 */
+		try {
+			fileItem.write(destFile);//瀹冧細鎶婁复鏃舵枃浠堕噸瀹氬悜鍒版寚瀹氱殑璺緞锛屽啀鍒犻櫎涓存椂鏂囦欢
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+		// 鏍￠獙灏哄
+		// 1. 浣跨敤鏂囦欢璺緞鍒涘缓ImageIcon
+		ImageIcon icon = new ImageIcon(destFile.getAbsolutePath());
+		// 2. 閫氳繃ImageIcon寰楀埌Image瀵硅薄
+		Image image = icon.getImage();
+		// 3. 鑾峰彇瀹介珮鏉ヨ繘琛屾牎楠�
+		if(image.getWidth(null) > 350 || image.getHeight(null) > 350) {
+			error("鎮ㄤ笂浼犵殑鍥剧墖灏哄瓒呭嚭浜�50*350锛", request, response);
+			destFile.delete();//鍒犻櫎鍥剧墖
+			return;
+		}
+		
+		// 鎶婂浘鐗囩殑璺緞璁剧疆缁檅ook瀵硅薄
+		book.setImage_w("book_img/" + filename);
+		
+		
+
+
+		// 鑾峰彇鏂囦欢鍚�
+		fileItem = fileItemList.get(2);//鑾峰彇灏忓浘
+		filename = fileItem.getName();
+		// 鎴彇鏂囦欢鍚嶏紝鍥犱负閮ㄥ垎娴忚鍣ㄤ笂浼犵殑缁濆璺緞
+		index = filename.lastIndexOf("\\");
+		if(index != -1) {
+			filename = filename.substring(index + 1);
+		}
+		// 缁欐枃浠跺悕娣诲姞uuid鍓嶇紑锛岄伩鍏嶆枃浠跺悓鍚嶇幇璞�
+		filename = CommonUtils.uuid() + "_" + filename;
+		// 鏍￠獙鏂囦欢鍚嶇О鐨勬墿灞曞悕
+		if(!filename.toLowerCase().endsWith(".jpg")) {
+			error("涓婁紶鐨勫浘鐗囨墿灞曞悕蹇呴』鏄疛PG", request, response);
+			return;
+		}
+		// 鏍￠獙鍥剧墖鐨勫昂瀵�
+		// 淇濆瓨涓婁紶鐨勫浘鐗囷紝鎶婂浘鐗噉ew鎴愬浘鐗囧璞★細Image銆両con銆両mageIcon銆丅ufferedImage銆両mageIO
+		/*
+		 * 淇濆瓨鍥剧墖锛�
+		 * 1. 鑾峰彇鐪熷疄璺緞
+		 */
+		savepath = this.getServletContext().getRealPath("/book_img");
+		/*
+		 * 2. 鍒涘缓鐩爣鏂囦欢
+		 */
+		destFile = new File(savepath, filename);
+		/*
+		 * 3. 淇濆瓨鏂囦欢
+		 */
+		try {
+			fileItem.write(destFile);//瀹冧細鎶婁复鏃舵枃浠堕噸瀹氬悜鍒版寚瀹氱殑璺緞锛屽啀鍒犻櫎涓存椂鏂囦欢
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+		// 鏍￠獙灏哄
+		// 1. 浣跨敤鏂囦欢璺緞鍒涘缓ImageIcon
+		icon = new ImageIcon(destFile.getAbsolutePath());
+		// 2. 閫氳繃ImageIcon寰楀埌Image瀵硅薄
+		image = icon.getImage();
+		// 3. 鑾峰彇瀹介珮鏉ヨ繘琛屾牎楠�
+		if(image.getWidth(null) > 350 || image.getHeight(null) > 350) {
+			error("鎮ㄤ笂浼犵殑鍥剧墖灏哄瓒呭嚭浜�50*350锛", request, response);
+			destFile.delete();//鍒犻櫎鍥剧墖
+			return;
+		}
+		
+		// 鎶婂浘鐗囩殑璺緞璁剧疆缁檅ook瀵硅薄
+		book.setImage_b("book_img/" + filename);
+		
+		
+		
+		
+		// 璋冪敤service瀹屾垚淇濆瓨
+		book.setBid(CommonUtils.uuid());
+		BookService bookService = new BookService();
+		bookService.add(book);
+		
+		// 淇濆瓨鎴愬姛淇℃伅杞彂鍒癿sg.jsp
+		request.setAttribute("msg", "娣诲姞鍥句功鎴愬姛锛");
+		request.getRequestDispatcher("/adminjsps/msg.jsp").forward(request, response);
+	}
+	
+	/*
+	 * 淇濆瓨閿欒淇℃伅锛岃浆鍙戝埌add.jsp
+	 */
+	private void error(String msg, HttpServletRequest request, HttpServletResponse response)
+			throws ServletException, IOException {
+		request.setAttribute("msg", msg);
+		request.setAttribute("parents", new CategoryService().findParents());//鎵�湁涓�骇鍒嗙被
+		request.getRequestDispatcher("/adminjsps/admin/book/add.jsp").
+				forward(request, response);
+	}
+}

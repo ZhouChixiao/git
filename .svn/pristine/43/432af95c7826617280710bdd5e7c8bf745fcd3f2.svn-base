@@ -1,0 +1,397 @@
+package webshop.web.servlet;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import webshop.model.Book;
+import webshop.model.Category;
+import webshop.pager.PageBean;
+import webshop.service.BookService;
+import webshop.service.CategoryService;
+import cn.itcast.commons.CommonUtils;
+import cn.itcast.servlet.BaseServlet;
+
+public class AdminBookServlet extends BaseServlet {
+	private BookService bookService = new BookService();
+	private CategoryService  categoryService = new CategoryService();
+	
+	/**
+	 * 鍒犻櫎鍥句功
+	 * @param req
+	 * @param resp
+	 * @return
+	 * @throws ServletException
+	 * @throws IOException
+	 */
+	public String delete(HttpServletRequest req, HttpServletResponse resp)
+			throws ServletException, IOException {
+		String bid = req.getParameter("bid");
+		
+		/*
+		 * 鍒犻櫎鍥剧墖
+		 */
+		Book book = bookService.load(bid);
+		String savepath = this.getServletContext().getRealPath("/");//鑾峰彇鐪熷疄鐨勮矾寰�
+		new File(savepath, book.getImage_w()).delete();//鍒犻櫎鏂囦欢
+		new File(savepath, book.getImage_b()).delete();//鍒犻櫎鏂囦欢
+		
+		bookService.delete(bid);//鍒犻櫎鏁版嵁搴撶殑璁板綍
+		
+		req.setAttribute("msg", "鍒犻櫎鍥句功鎴愬姛锛");
+		return "f:/adminjsps/msg.jsp";
+	}
+	
+	/**
+	 * 淇敼鍥句功
+	 * @param req
+	 * @param resp
+	 * @return
+	 * @throws ServletException
+	 * @throws IOException
+	 */
+	public String edit(HttpServletRequest req, HttpServletResponse resp)
+			throws ServletException, IOException {
+		/*
+		 * 1. 鎶婅〃鍗曟暟鎹皝瑁呭埌Book瀵硅薄涓�
+		 * 2. 灏佽cid鍒癈ategory涓�
+		 * 3. 鎶奀ategory璧嬬粰Book
+		 * 4. 璋冪敤service瀹屾垚宸ヤ綔
+		 * 5. 淇濆瓨鎴愬姛淇℃伅锛岃浆鍙戝埌msg.jsp
+		 */
+		Map map = req.getParameterMap();
+		Book book = CommonUtils.toBean(map, Book.class);
+		Category category = CommonUtils.toBean(map, Category.class);
+		book.setCategory(category);
+		
+		bookService.edit(book);
+		req.setAttribute("msg", "淇敼鍥句功鎴愬姛锛");
+		return "f:/adminjsps/msg.jsp";
+	}
+	
+	/**
+	 * 鍔犺浇鍥句功
+	 * @param req
+	 * @param resp
+	 * @return
+	 * @throws ServletException
+	 * @throws IOException
+	 */
+	public String load(HttpServletRequest req, HttpServletResponse resp)
+			throws ServletException, IOException {
+		/*
+		 * 1. 鑾峰彇bid锛屽緱鍒癇ook瀵硅薄锛屼繚瀛樹箣
+		 */
+		String bid = req.getParameter("bid");
+		Book book = bookService.load(bid);
+		req.setAttribute("book", book);
+		
+		/*
+		 * 2. 鑾峰彇鎵�湁涓�骇鍒嗙被锛屼繚瀛樹箣
+		 */
+		req.setAttribute("parents", categoryService.findParents());
+		/*
+		 * 3. 鑾峰彇褰撳墠鍥句功鎵�睘鐨勪竴绾у垎绫讳笅鎵�湁2绾у垎绫�
+		 */
+		String pid = book.getCategory().getParent().getCid();
+		req.setAttribute("children", categoryService.findChildren(pid));
+		
+		/*
+		 * 4. 杞彂鍒癲esc.jsp鏄剧ず
+		 */
+		return "f:/adminjsps/admin/book/desc.jsp";
+	}
+	
+	/**
+	 * 娣诲姞鍥句功锛氱涓�
+	 * @param req
+	 * @param resp
+	 * @return
+	 * @throws ServletException
+	 * @throws IOException
+	 */
+	public String addPre(HttpServletRequest req, HttpServletResponse resp)
+			throws ServletException, IOException {
+		/*
+		 * 1. 鑾峰彇鎵�湁涓�骇鍒嗙被锛屼繚瀛樹箣
+		 * 2. 杞彂鍒癮dd.jsp锛岃椤甸潰浼氬湪涓嬫媺鍒楄〃涓樉绀烘墍鏈変竴绾у垎绫�
+		 */
+		List<Category> parents = categoryService.findParents();
+		req.setAttribute("parents", parents);
+		return "f:/adminjsps/admin/book/add.jsp";
+	}
+	
+	public String ajaxFindChildren(HttpServletRequest req, HttpServletResponse resp)
+			throws ServletException, IOException {
+		/*
+		 * 1. 鑾峰彇pid
+		 * 2. 閫氳繃pid鏌ヨ鍑烘墍鏈�绾у垎绫�
+		 * 3. 鎶奓ist<Category>杞崲鎴恓son锛岃緭鍑虹粰瀹㈡埛绔�
+		 */
+		String pid = req.getParameter("pid");
+		List<Category> children = categoryService.findChildren(pid);
+		String json = toJson(children);
+		resp.getWriter().print(json);
+		return null;
+	}
+	
+	// {"cid":"fdsafdsa", "cname":"fdsafdas"}
+	private String toJson(Category category) {
+		StringBuilder sb = new StringBuilder("{");
+		sb.append("\"cid\"").append(":").append("\"").append(category.getCid()).append("\"");
+		sb.append(",");
+		sb.append("\"cname\"").append(":").append("\"").append(category.getCname()).append("\"");
+		sb.append("}");
+		return sb.toString();
+	}
+	
+	// [{"cid":"fdsafdsa", "cname":"fdsafdas"}, {"cid":"fdsafdsa", "cname":"fdsafdas"}]
+	private String toJson(List<Category> categoryList) {
+		StringBuilder sb = new StringBuilder("[");
+		for(int i = 0; i < categoryList.size(); i++) {
+			sb.append(toJson(categoryList.get(i)));
+			if(i < categoryList.size() - 1) {
+				sb.append(",");
+			}
+		}
+		sb.append("]");
+		return sb.toString();
+	}
+	
+	/**
+	 * 鏄剧ず鎵�湁鍒嗙被
+	 * @param req
+	 * @param resp
+	 * @return
+	 * @throws ServletException
+	 * @throws IOException
+	 */
+	public String findCategoryAll(HttpServletRequest req, HttpServletResponse resp)
+			throws ServletException, IOException {
+		/*
+		 * 1. 閫氳繃service寰楀埌鎵�湁鐨勫垎绫�
+		 * 2. 淇濆瓨鍒皉equest涓紝杞彂鍒發eft.jsp
+		 */
+		List<Category> parents = categoryService.findAll();
+		req.setAttribute("parents", parents);
+		return "f:/adminjsps/admin/book/left.jsp";
+	}
+	
+	
+	
+	
+	
+	
+	
+	/**
+	 * 鑾峰彇褰撳墠椤电爜
+	 * @param req
+	 * @return
+	 */
+	private int getPc(HttpServletRequest req) {
+		int pc = 1;
+		String param = req.getParameter("pc");
+		if(param != null && !param.trim().isEmpty()) {
+			try {
+				pc = Integer.parseInt(param);
+			} catch(RuntimeException e) {}
+		}
+		return pc;
+	}
+	
+	/**
+	 * 鎴彇url锛岄〉闈腑鐨勫垎椤靛鑸腑闇�浣跨敤瀹冨仛涓鸿秴閾炬帴鐨勭洰鏍囷紒
+	 * @param req
+	 * @return
+	 */
+	/*
+	 * http://localhost:8080/goods/BookServlet?methed=findByCategory&cid=xxx&pc=3
+	 * /goods/BookServlet + methed=findByCategory&cid=xxx&pc=3
+	 */
+	private String getUrl(HttpServletRequest req) {
+		String url = req.getRequestURI() + "?" + req.getQueryString();
+		/*
+		 * 濡傛灉url涓瓨鍦╬c鍙傛暟锛屾埅鍙栨帀锛屽鏋滀笉瀛樺湪閭ｅ氨涓嶇敤鎴彇銆�
+		 */
+		int index = url.lastIndexOf("&pc=");
+		if(index != -1) {
+			url = url.substring(0, index);
+		}
+		return url;
+	}
+	
+	/**
+	 * 鎸夊垎绫绘煡
+	 * @param req
+	 * @param resp
+	 * @return
+	 * @throws ServletException
+	 * @throws IOException
+	 */
+	public String findByCategory(HttpServletRequest req, HttpServletResponse resp)
+			throws ServletException, IOException {
+		/*
+		 * 1. 寰楀埌pc锛氬鏋滈〉闈紶閫掞紝浣跨敤椤甸潰鐨勶紝濡傛灉娌′紶锛宲c=1
+		 */
+		int pc = getPc(req);
+		/*
+		 * 2. 寰楀埌url锛�..
+		 */
+		String url = getUrl(req);
+		/*
+		 * 3. 鑾峰彇鏌ヨ鏉′欢锛屾湰鏂规硶灏辨槸cid锛屽嵆鍒嗙被鐨刬d
+		 */
+		String cid = req.getParameter("cid");
+		/*
+		 * 4. 浣跨敤pc鍜宑id璋冪敤service#findByCategory寰楀埌PageBean
+		 */
+		PageBean<Book> pb = bookService.findByCategory(cid, pc);
+		/*
+		 * 5. 缁橮ageBean璁剧疆url锛屼繚瀛楶ageBean锛岃浆鍙戝埌/jsps/book/list.jsp
+		 */
+		pb.setUrl(url);
+		req.setAttribute("pb", pb);
+		return "f:/adminjsps/admin/book/list.jsp";
+	}
+	
+	/**
+	 * 鎸変綔鑰呮煡
+	 * @param req
+	 * @param resp
+	 * @return
+	 * @throws ServletException
+	 * @throws IOException
+	 */
+	public String findByAuthor(HttpServletRequest req, HttpServletResponse resp)
+			throws ServletException, IOException {
+		/*
+		 * 1. 寰楀埌pc锛氬鏋滈〉闈紶閫掞紝浣跨敤椤甸潰鐨勶紝濡傛灉娌′紶锛宲c=1
+		 */
+		int pc = getPc(req);
+		/*
+		 * 2. 寰楀埌url锛�..
+		 */
+		String url = getUrl(req);
+		/*
+		 * 3. 鑾峰彇鏌ヨ鏉′欢锛屾湰鏂规硶灏辨槸cid锛屽嵆鍒嗙被鐨刬d
+		 */
+		String author = req.getParameter("author");
+		/*
+		 * 4. 浣跨敤pc鍜宑id璋冪敤service#findByCategory寰楀埌PageBean
+		 */
+		PageBean<Book> pb = bookService.findByAuthor(author, pc);
+		/*
+		 * 5. 缁橮ageBean璁剧疆url锛屼繚瀛楶ageBean锛岃浆鍙戝埌/jsps/book/list.jsp
+		 */
+		pb.setUrl(url);
+		req.setAttribute("pb", pb);
+		return "f:/adminjsps/admin/book/list.jsp";
+	}
+	
+	/**
+	 * 鎸夊嚭鐗堢ぞ鏌ヨ
+	 * @param req
+	 * @param resp
+	 * @return
+	 * @throws ServletException
+	 * @throws IOException
+	 */
+	public String findByPress(HttpServletRequest req, HttpServletResponse resp)
+			throws ServletException, IOException {
+		/*
+		 * 1. 寰楀埌pc锛氬鏋滈〉闈紶閫掞紝浣跨敤椤甸潰鐨勶紝濡傛灉娌′紶锛宲c=1
+		 */
+		int pc = getPc(req);
+		/*
+		 * 2. 寰楀埌url锛�..
+		 */
+		String url = getUrl(req);
+		/*
+		 * 3. 鑾峰彇鏌ヨ鏉′欢锛屾湰鏂规硶灏辨槸cid锛屽嵆鍒嗙被鐨刬d
+		 */
+		String press = req.getParameter("press");
+		/*
+		 * 4. 浣跨敤pc鍜宑id璋冪敤service#findByCategory寰楀埌PageBean
+		 */
+		PageBean<Book> pb = bookService.findByPress(press, pc);
+		/*
+		 * 5. 缁橮ageBean璁剧疆url锛屼繚瀛楶ageBean锛岃浆鍙戝埌/jsps/book/list.jsp
+		 */
+		pb.setUrl(url);
+		req.setAttribute("pb", pb);
+		return "f:/adminjsps/admin/book/list.jsp";
+	}
+	
+	/**
+	 * 鎸夊浘鍚嶆煡
+	 * @param req
+	 * @param resp
+	 * @return
+	 * @throws ServletException
+	 * @throws IOException
+	 */
+	public String findByBname(HttpServletRequest req, HttpServletResponse resp)
+			throws ServletException, IOException {
+		/*
+		 * 1. 寰楀埌pc锛氬鏋滈〉闈紶閫掞紝浣跨敤椤甸潰鐨勶紝濡傛灉娌′紶锛宲c=1
+		 */
+		int pc = getPc(req);
+		/*
+		 * 2. 寰楀埌url锛�..
+		 */
+		String url = getUrl(req);
+		/*
+		 * 3. 鑾峰彇鏌ヨ鏉′欢锛屾湰鏂规硶灏辨槸cid锛屽嵆鍒嗙被鐨刬d
+		 */
+		String bname = req.getParameter("bname");
+		/*
+		 * 4. 浣跨敤pc鍜宑id璋冪敤service#findByCategory寰楀埌PageBean
+		 */
+		PageBean<Book> pb = bookService.findByBname(bname, pc);
+		/*
+		 * 5. 缁橮ageBean璁剧疆url锛屼繚瀛楶ageBean锛岃浆鍙戝埌/jsps/book/list.jsp
+		 */
+		pb.setUrl(url);
+		req.setAttribute("pb", pb);
+		return "f:/adminjsps/admin/book/list.jsp";
+	}
+	
+	/**
+	 * 澶氭潯浠剁粍鍚堟煡璇�
+	 * @param req
+	 * @param resp
+	 * @return
+	 * @throws ServletException
+	 * @throws IOException
+	 */
+	public String findByCombination(HttpServletRequest req, HttpServletResponse resp)
+			throws ServletException, IOException {
+		/*
+		 * 1. 寰楀埌pc锛氬鏋滈〉闈紶閫掞紝浣跨敤椤甸潰鐨勶紝濡傛灉娌′紶锛宲c=1
+		 */
+		int pc = getPc(req);
+		/*
+		 * 2. 寰楀埌url锛�..
+		 */
+		String url = getUrl(req);
+		/*
+		 * 3. 鑾峰彇鏌ヨ鏉′欢锛屾湰鏂规硶灏辨槸cid锛屽嵆鍒嗙被鐨刬d
+		 */
+		Book criteria = CommonUtils.toBean(req.getParameterMap(), Book.class);
+		/*
+		 * 4. 浣跨敤pc鍜宑id璋冪敤service#findByCategory寰楀埌PageBean
+		 */
+		PageBean<Book> pb = bookService.findByCombination(criteria, pc);
+		/*
+		 * 5. 缁橮ageBean璁剧疆url锛屼繚瀛楶ageBean锛岃浆鍙戝埌/jsps/book/list.jsp
+		 */
+		pb.setUrl(url);
+		req.setAttribute("pb", pb);
+		return "f:/adminjsps/admin/book/list.jsp";
+	}
+}

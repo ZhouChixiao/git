@@ -1,0 +1,176 @@
+package webshop.service;
+
+import java.io.IOException;
+import java.sql.SQLException;
+import java.text.MessageFormat;
+import java.util.Properties;
+
+import javax.mail.MessagingException;
+import javax.mail.Session;
+
+import webshop.dao.UserDao;
+import webshop.exception.UserException;
+import webshop.model.User;
+
+import cn.itcast.commons.CommonUtils;
+
+import cn.itcast.mail.Mail;
+import cn.itcast.mail.MailUtils;
+
+/**
+ * 鐢ㄦ埛妯″潡涓氬姟灞�
+ * @author qdmmy6
+ *
+ */
+public class UserService {
+	private UserDao userDao = new UserDao();
+	
+	/**
+	 * 淇敼瀵嗙爜
+	 * @param uid
+	 * @param newPass
+	 * @param oldPass
+	 * @throws UserException 
+	 */
+	public void updatePassword(String uid, String newPass, String oldPass) throws UserException {
+
+		try {
+			/*
+			 * 1. 鏍￠獙鑰佸瘑鐮�
+			 */
+			boolean bool = userDao.findByUidAndPassword(uid, oldPass);
+			if(!bool) {//濡傛灉鑰佸瘑鐮侀敊璇�
+				throw new UserException("鑰佸瘑鐮侀敊璇紒");
+			}
+			
+			/*
+			 * 2. 淇敼瀵嗙爜
+			 */
+			userDao.updatePassword(uid, newPass);
+		} catch (SQLException e) {
+			throw new RuntimeException(e);
+		}
+	}
+	
+	/**
+	 * 鐧诲綍鍔熻兘
+	 * @param user
+	 * @return
+	 */
+	public User login(User user) {
+		try {
+			return userDao.findByLoginnameAndLoginpass(user.getLoginname(), user.getLoginpass());
+		} catch (SQLException e) {
+			throw new RuntimeException(e);
+		}
+	}
+	
+	/**
+	 * 婵�椿鍔熻兘
+	 * @param code
+	 * @throws UserException 
+	 */
+	public void activatioin(String code) throws UserException {
+		/*
+		 * 1. 閫氳繃婵�椿鐮佹煡璇㈢敤鎴�
+		 * 2. 濡傛灉User涓簄ull锛岃鏄庢槸鏃犳晥婵�椿鐮侊紝鎶涘嚭寮傚父锛岀粰鍑哄紓甯镐俊鎭紙鏃犳晥婵�椿鐮侊級
+		 * 3. 鏌ョ湅鐢ㄦ埛鐘舵�鏄惁涓簍rue锛屽鏋滀负true锛屾姏鍑哄紓甯革紝缁欏嚭寮傚父淇℃伅锛堣涓嶈浜屾婵�椿锛�
+		 * 4. 淇敼鐢ㄦ埛鐘舵�涓簍rue
+		 */
+		try {
+			User user = userDao.findByCode(code);
+			if(user == null) throw new UserException("鏃犳晥鐨勬縺娲荤爜锛");
+			if(user.isStatus()) throw new UserException("鎮ㄥ凡缁忔縺娲昏繃浜嗭紝涓嶈浜屾婵�椿锛");
+			userDao.updateStatus(user.getUid(), true);//淇敼鐘舵�
+		} catch(SQLException e) {
+			throw new RuntimeException(e);
+		}
+	}
+	
+	/**
+	 * 鐢ㄦ埛鍚嶆敞鍐屾牎楠�
+	 * @param loginname
+	 * @return
+	 */
+	public boolean ajaxValidateLoginname(String loginname) {
+		try {
+			return userDao.ajaxValidateLoginname(loginname);
+		} catch (SQLException e) {
+			throw new RuntimeException(e);
+		}
+	}
+	
+	/**
+	 * Email鏍￠獙
+	 * @param email
+	 * @return
+	 */
+	public boolean ajaxValidateEmail(String email) {
+		try {
+			return userDao.ajaxValidateEmail(email);
+		} catch (SQLException e) {
+			throw new RuntimeException(e);
+		}
+	}
+	
+	/**
+	 * 娉ㄥ唽鍔熻兘
+	 * @param user
+	 */
+	public void regist(User user) {
+		/*
+		 * 1. 鏁版嵁鐨勮ˉ榻�
+		 */
+		user.setUid(CommonUtils.uuid());
+		user.setStatus(false);
+		user.setActivationCode(CommonUtils.uuid() + CommonUtils.uuid());
+		/*
+		 * 2. 鍚戞暟鎹簱鎻掑叆
+		 */
+		try {
+			userDao.add(user);
+		} catch (SQLException e) {
+			throw new RuntimeException(e);
+		}
+		/*
+		 * 3. 鍙戦偖浠�
+		 */
+		/*
+		 * 鎶婇厤缃枃浠跺唴瀹瑰姞杞藉埌prop涓�
+		 */
+		Properties prop = new Properties();
+		try {
+			prop.load(this.getClass().getClassLoader().getResourceAsStream("email_template.properties"));
+		} catch (IOException e1) {
+			throw new RuntimeException(e1);
+		}
+		/*
+		 * 鐧诲綍閭欢鏈嶅姟鍣紝寰楀埌session
+		 */
+		String host = prop.getProperty("host");//鏈嶅姟鍣ㄤ富鏈哄悕
+		String name = prop.getProperty("username");//鐧诲綍鍚�
+		String pass = prop.getProperty("password");//鐧诲綍瀵嗙爜
+		Session session = MailUtils.createSession(host, name, pass);
+		
+		/*
+		 * 鍒涘缓Mail瀵硅薄
+		 */
+		String from = prop.getProperty("from");
+		String to = user.getEmail();
+		String subject = prop.getProperty("subject");
+		// MessageForm.format鏂规硶浼氭妸绗竴涓弬鏁颁腑鐨剓0},浣跨敤绗簩涓弬鏁版潵鏇挎崲銆�
+		// 渚嬪MessageFormat.format("浣犲ソ{0}, 浣爗1}!", "寮犱笁", "鍘绘鍚�); 杩斿洖鈥滀綘濂藉紶涓夛紝浣犲幓姝诲惂锛佲�
+		String content = MessageFormat.format(prop.getProperty("content"), user.getActivationCode());
+		Mail mail = new Mail(from, to, subject, content);
+		/*
+		 * 鍙戦�閭欢
+		 */
+		try {
+			MailUtils.send(session, mail);
+		} catch (MessagingException e) {
+			throw new RuntimeException(e);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
+}
